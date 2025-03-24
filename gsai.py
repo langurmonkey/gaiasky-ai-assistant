@@ -18,6 +18,7 @@ def get_all_doc_links(base_url):
 
     while to_visit:
         url = to_visit.pop()
+        print(f"Scrapping {url}")
         if url in visited:
             continue
         visited.add(url)
