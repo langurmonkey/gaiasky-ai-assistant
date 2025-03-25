@@ -7,12 +7,16 @@ name = "pypi"
 requests = "*"
 langchain = "*"
 bs4 = "*"
-langchain-community = "*"
 langchain-huggingface = "*"
 langchain-ollama = "*"
 chromadb = "*"
-ollama = "*"
 sentence-transformers = "*"
+langchain-community = "*"
+ollama = "*"
+argparse = "*"
+langchain-chroma = "*"
+pudb = "*"
+termcolor = "*"
 
 [dev-packages]
 
