@@ -30,16 +30,6 @@ embed_model = "sentence-transformers/all-MiniLM-L6-v2"
 # embed_model = "HIT-TMG/KaLM-embedding-multilingual-mini-v1"
 # embed_model = "Linq-AI-Research/Linq-Embed-Mistral"
 
-# NUMBER OF RESULTS
-# Number of results to retireve from the vector store to use as context.
-n_results = 5
-
-# TEMPERATURE
-# The temperature controls the 'creativity' of the model. It is in [0,1]. Lower values
-# (0.0-0.3) make the model more correct and deterministic. Higher values (0.7-1.0) offer
-# more creative and varied responses. We want correctness, so we use a low value.
-temperature = 0.3
-
 # SYSTEM PROMPT
 system_prompt = (
     "You are a customer support agent, helping users by following directives and answering questions. "
@@ -153,15 +143,15 @@ def store_embeddings(texts, db_path):
     vector_store = Chroma.from_documents(documents, embeddings, persist_directory=db_path)
     return vector_store
 
-def query_with_ollama(vector_store, model_name):
+def query_with_ollama(vector_store, model_name, num_results, temp):
     """Uses an Ollama model to retrieve and answer user queries based on stored embeddings."""
-    retriever = vector_store.as_retriever(search_kwargs={"k": n_results})
+    retriever = vector_store.as_retriever(search_kwargs={"k": num_results})
     prompt = ChatPromptTemplate.from_messages(
     [
         ("system", system_prompt),
         ("human", "{input}"),
     ])
-    qa_chain = create_stuff_documents_chain(OllamaLLM(model=model_name, temperature=temperature, stream=True), prompt)
+    qa_chain = create_stuff_documents_chain(OllamaLLM(model=model_name, temperature=temp, stream=True), prompt)
     chain = create_retrieval_chain(retriever, qa_chain)
     
     while True:
@@ -175,7 +165,7 @@ def query_with_ollama(vector_store, model_name):
     
         print("\n")
 
-def chatbot(vector_store):
+def chatbot(vector_store, num_results, temp):
     # List available models
     try:
         models = ollama.list()
@@ -209,13 +199,28 @@ def chatbot(vector_store):
     print(f"Embed model: {colored(embed_model, 'yellow', attrs=['bold'])}")
 
     print("Connecting to Ollama for queries...")
-    query_with_ollama(vector_store, llm_model)
+    query_with_ollama(vector_store, llm_model, num_results, temp)
     
+
+def positive_int(value):
+    ivalue = int(value)
+    if ivalue <= 0:
+        raise argparse.ArgumentTypeError(f"{value} is an invalid positive integer")
+    return ivalue
+
+def bounded_float(value):
+    fvalue = float(value)
+    if not (0 <= fvalue <= 1):
+        raise argparse.ArgumentTypeError(f"{value} is out of range [0,1]")
+    return fvalue
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog="Gaia Sky AI assistant",
                                      description="AI assistant that provides answers to Gaia Sky-related questions by searching the docs for you. First, run with --scrape to populate the database. Then, run without arguments to start the chatbot.",
                                      epilog="Written by Toni Sagrista, 2025.")
+    parser.add_argument("-k", "--nresults", type=positive_int, default=6, help="Number of results to use for context, as a positive integer (>0).")
+    parser.add_argument("-t", "--temp", type=bounded_float, default=0.3, help="The temperature controls the 'creativity' of the model. It is in [0,1]. Lower values (0.0-0.3) make the model more correct and deterministic. Higher values (0.7-1.0) offer more creative and varied responses. We want correctness, so we use a low value.")
+
     parser.add_argument("-s", "--scrape", action="store_true", help="Only scrape websites and update embeddings.")
     parser.add_argument("-l", "--local-scraper", action="store_true", help="Use local scraper (less accurate!) instead of the one based on newspaper3k. Only useful when --scrape is used.")
     args = parser.parse_args()
@@ -240,5 +245,5 @@ if __name__ == "__main__":
         vector_store = Chroma(persist_directory=db_path, embedding_function=embeddings)
 
         # Start chatbot.
-        chatbot(vector_store)
+        chatbot(vector_store, args.nresults, args.temp)
         print("Bye!")

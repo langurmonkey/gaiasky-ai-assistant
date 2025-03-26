@@ -31,5 +31,5 @@ Once the websites have been scraped, you can run the chatbot by launching the pr
 gsai.py
 ```
 
-When in doubt, use the `-h` argument to show the help.
+Set the temperature with `-t`, and the number of results with `-k`. When in doubt, use the `-h` argument to show the help.
 
