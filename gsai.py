@@ -127,22 +127,25 @@ def store_embeddings(texts, db_path):
 
 def query_with_ollama(vector_store, model_name):
     """Uses an Ollama model to retrieve and answer user queries based on stored embeddings."""
-    retriever = vector_store.as_retriever(search_kwargs={"k": n_results, "temperature": temperature})
+    retriever = vector_store.as_retriever(search_kwargs={"k": n_results})
     prompt = ChatPromptTemplate.from_messages(
     [
         ("system", system_prompt),
         ("human", "{input}"),
     ])
-    qa_chain = create_stuff_documents_chain(OllamaLLM(model=model_name), prompt)
+    qa_chain = create_stuff_documents_chain(OllamaLLM(model=model_name, temperature=temperature, stream=True), prompt)
     chain = create_retrieval_chain(retriever, qa_chain)
     
     while True:
         query = input(colored("Ask a question (type 'exit' to quit): ", "yellow", attrs=["bold"]))
-        if query.lower() == "exit" or query.lower() == "quit" or query.lower() == "bye":
+        if query.lower() in ["exit", "quit", "bye"]:
             break
-        
-        answer = chain.invoke({"input": query})
-        print(answer["answer"])
+
+        for chunk in chain.stream({"input": query}):
+            if "answer" in chunk:
+                print(chunk["answer"], end="", flush=True)
+    
+        print("\n")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
