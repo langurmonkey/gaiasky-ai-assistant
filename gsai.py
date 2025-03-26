@@ -32,7 +32,7 @@ embed_model = "sentence-transformers/all-MiniLM-L6-v2"
 
 # NUMBER OF RESULTS
 # Number of results to retireve from the vector store to use as context.
-n_results = 10
+n_results = 5
 
 # TEMPERATURE
 # The temperature controls the 'creativity' of the model. It is in [0,1]. Lower values
@@ -176,7 +176,6 @@ def query_with_ollama(vector_store, model_name):
         print("\n")
 
 def chatbot(vector_store):
-
     # List available models
     try:
         models = ollama.list()
@@ -217,8 +216,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog="Gaia Sky AI assistant",
                                      description="AI assistant that provides answers to Gaia Sky-related questions by searching the docs for you. First, run with --scrape to populate the database. Then, run without arguments to start the chatbot.",
                                      epilog="Written by Toni Sagrista, 2025.")
-    parser.add_argument("--scrape", action="store_true", help="Only scrape websites and update embeddings.")
-    parser.add_argument("--local-scraper", action="store_true", help="Use local scraper (less accurate!) instead of the one based on newspaper3k. Only useful when --scrape is used.")
+    parser.add_argument("-s", "--scrape", action="store_true", help="Only scrape websites and update embeddings.")
+    parser.add_argument("-l", "--local-scraper", action="store_true", help="Use local scraper (less accurate!) instead of the one based on newspaper3k. Only useful when --scrape is used.")
     args = parser.parse_args()
 
     urls = ["https://gaia.ari.uni-heidelberg.de/gaiasky/docs/master/",
