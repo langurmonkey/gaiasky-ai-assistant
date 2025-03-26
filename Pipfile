@@ -17,6 +17,7 @@ argparse = "*"
 langchain-chroma = "*"
 pudb = "*"
 termcolor = "*"
+html2text = "*"
 
 [dev-packages]
 

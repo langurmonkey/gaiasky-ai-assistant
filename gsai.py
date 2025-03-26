@@ -87,7 +87,29 @@ def clean_text(text):
     text = ' '.join(text.split())  # Remove excessive whitespace
     return text if text else None
 
+def extract_text_from_page_newspaper(url):
+    """Extracts meaningful text from a given URL using newspaper3k."""
+    from newspaper import Article
+    try:
+        article = Article(url)
+        article.download()
+        article.parse()
+        return article.text
+    except:
+        return None
+
 def extract_text_from_page(url):
+    """Extracts meaningful text from a given URL using html2text."""
+    import html2text
+    try:
+        response = requests.get(url)
+        h = html2text.HTML2Text()
+        h.ignore_links = False  # Set this to True to ignore links
+        return h.handle(response.text)
+    except:
+        return None
+
+def extract_text_from_page_local(url):
     """Extracts meaningful text from a given URL while stripping unwanted UI elements."""
     response = requests.get(url, headers=headers)
     if response.status_code != 200:
@@ -116,7 +138,7 @@ def extract_text_from_page(url):
 
     return structured_text if structured_text else None
 
-def scrape_urls(base_urls):
+def scrape_urls(base_urls, local_scraper=False):
     """Scrape and extract text content from multiple URLs."""
     all_text = ""
     
@@ -125,7 +147,7 @@ def scrape_urls(base_urls):
         print(f"Found {len(all_links)} pages to scrape...")
         print(f"Extracting text from pages...")
         for url in all_links:
-            page_text = extract_text_from_page(url)
+            page_text = extract_text_from_page(url) if not local_scraper else extract_text_from_page_local(url)
             if page_text:
                 all_text += f"\n\n### {url}\n{page_text}"
 
@@ -164,24 +186,16 @@ def query_with_ollama(vector_store, model_name):
     
         print("\n")
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--scrape", action="store_true", help="Scrape and update embeddings before starting chatbot")
-    args = parser.parse_args()
+def chatbot(vector_store):
 
-    urls = ["https://gaia.ari.uni-heidelberg.de/gaiasky/docs/master/",
-            "https://gaiasky.space"]
-    db_path = "chroma_db"
-    
     # List available models
     try:
         models = ollama.list()
         model_names = [m.model for m in models.models]
     except:
-        print("Ollama service is not running.")
+        print(f"{colored('ERROR', 'red')}: Ollama service is not running.")
         exit(1)
-    
-    print("Welcome to the Gaia Sky AI assistant! We connect to Ollama to use a local LLM.\n")
+
     # Print the available models with index numbers
     print("Available models:")
     for i, name in enumerate(model_names):
@@ -206,16 +220,37 @@ if __name__ == "__main__":
     print(f"LLM model: {colored(llm_model, 'yellow', attrs=['bold'])}")
     print(f"Embed model: {colored(embed_model, 'yellow', attrs=['bold'])}")
 
-    if args.scrape:
-        print("Starting scraping...")
-        doc_text = scrape_urls(urls)
-        print("Storing embeddings in ChromaDB...")
-        vector_store = store_embeddings(doc_text, db_path)
-    else:
-        print("Loading existing embeddings from ChromaDB...")
-        embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-        vector_store = Chroma(persist_directory=db_path, embedding_function=embeddings)
-    
     print("Connecting to Ollama for queries...")
     query_with_ollama(vector_store, llm_model)
+    
 
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(prog="Gaia Sky AI assistant",
+                                     description="AI assistant that provides answers to Gaia Sky-related questions by searching the docs for you. First, run with --scrape to populate the database. Then, run without arguments to start the chatbot.",
+                                     epilog="Written by Toni Sagrista, 2025.")
+    parser.add_argument("--scrape", action="store_true", help="Only scrape websites and update embeddings.")
+    parser.add_argument("--local-scraper", action="store_true", help="Use local scraper (less accurate!) instead of the one based on newspaper3k. Only useful when --scrape is used.")
+    args = parser.parse_args()
+
+    urls = ["https://gaia.ari.uni-heidelberg.de/gaiasky/docs/master/",
+            "https://gaiasky.space"]
+    db_path = "chroma_db"
+
+    if args.local_scraper and not args.scrape:
+        print(f"{color('WARNING', 'orange')}: --local-scraper has no effect without --scrape!\n")
+    
+    if args.scrape:
+        print("Starting scraping...")
+        doc_text = scrape_urls(urls, args.local_scraper)
+        print("Storing embeddings in ChromaDB...")
+        vector_store = store_embeddings(doc_text, db_path)
+        print("Done! Run the script without arguments to start the chatbot.")
+    else:
+        print(colored("WELCOME TO THE GAIA SKY AI ASSISTANT!", "blue", attrs=["bold"]))
+
+        embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+        vector_store = Chroma(persist_directory=db_path, embedding_function=embeddings)
+
+        # Start chatbot.
+        chatbot(vector_store)
+        print("Bye!")
