@@ -87,17 +87,6 @@ def clean_text(text):
     text = ' '.join(text.split())  # Remove excessive whitespace
     return text if text else None
 
-def extract_text_from_page_newspaper(url):
-    """Extracts meaningful text from a given URL using newspaper3k."""
-    from newspaper import Article
-    try:
-        article = Article(url)
-        article.download()
-        article.parse()
-        return article.text
-    except:
-        return None
-
 def extract_text_from_page(url):
     """Extracts meaningful text from a given URL using html2text."""
     import html2text
