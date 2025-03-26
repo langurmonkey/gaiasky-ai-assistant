@@ -81,23 +81,40 @@ def get_all_doc_links(base_url):
 
     return visited
 
+def clean_text(text):
+    """Cleans and normalizes extracted text."""
+    text = text.strip()
+    text = ' '.join(text.split())  # Remove excessive whitespace
+    return text if text else None
+
 def extract_text_from_page(url):
-    """Extracts meaningful text from a given URL."""
+    """Extracts meaningful text from a given URL while stripping unwanted UI elements."""
     response = requests.get(url, headers=headers)
     if response.status_code != 200:
         return None
-    
+
     soup = BeautifulSoup(response.text, "html.parser")
 
-    # Extract text from multiple meaningful elements
-    content_blocks = []
-    for tag in soup.find_all(["h1", "h2", "h3", "h4", "h5", "p",
-                              "li", "td", "article"]):
-        text = tag.get_text(strip=True)
+    # Remove unwanted elements (menus, footers, sidebars, etc.)
+    for tag in soup.find_all(["nav", "header", "footer", "aside", "form", "script", "style"]):
+        tag.decompose()
+
+    # Extract text from relevant content elements
+    content_blocks = set()
+    for tag in soup.find_all(["h1", "h2", "h3", "h4", "h5", "p", "li", "td", "article", "code"]):
+        text = clean_text(tag.get_text())
         if text:
-            content_blocks.append(f" {text} ")
-    
-    return "\n".join(content_blocks)
+            content_blocks.add(text)  # Avoid duplicate blocks
+
+    # Extract image descriptions
+    for img in soup.find_all("img"):
+        alt_text = img.get("alt") or "Image without description"
+        content_blocks.add(f"[Image: {alt_text}]")
+
+    # Standardize document structure
+    structured_text = "\n".join(sorted(content_blocks))
+
+    return structured_text if structured_text else None
 
 def scrape_urls(base_urls):
     """Scrape and extract text content from multiple URLs."""
